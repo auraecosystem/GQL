@@ -1,4 +1,9 @@
-from fastapi import FastAPI, HTTPException
+from pathlib import Path
+from typing import Any
+
+from fastapi import Body, FastAPI, HTTPException
+from graphql import GraphQLError, build_schema, graphql_sync
+from graphql.language import value_from_ast_untyped
 from pydantic import BaseModel, Field
 
 from runtime.hardware import detect_hardware
@@ -13,7 +18,7 @@ from runtime.workers import WorkerUnavailable, worker_registry
 
 app = FastAPI(
     title="GQL GPU Fabric",
-    version="0.2.0",
+    version="0.3.0",
     description=(
         "Multi-backend AI workload control plane with persistent job state. "
         "Execution requires an explicitly registered trusted worker."
@@ -27,9 +32,65 @@ class JobRequest(BaseModel):
     parameters: dict = Field(default_factory=dict)
 
 
+def _json_scalar_value(value: Any) -> Any:
+    """Accept JSON-compatible values only; reject Python objects from resolvers."""
+    import json
+
+    try:
+        return json.loads(json.dumps(value, allow_nan=False))
+    except (TypeError, ValueError) as exc:
+        raise GraphQLError("Value is not JSON serializable") from exc
+
+
+graphql_schema_path = Path(__file__).resolve().parents[1] / "schema" / "schema.gql"
+graphql_schema = build_schema(graphql_schema_path.read_text(encoding="utf-8"))
+json_scalar = graphql_schema.type_map["JSON"]
+json_scalar.serialize = _json_scalar_value
+json_scalar.parse_value = _json_scalar_value
+json_scalar.parse_literal = lambda node, variables=None: _json_scalar_value(
+    value_from_ast_untyped(node, variables)
+)
+
+
+def _graphql_health(_source, _info):
+    return {"status": "ok", "service": "gql-gpu-fabric", "version": app.version}
+
+
+def _graphql_hardware(_source, _info):
+    detected = detect_hardware()
+    torch_info = detected.get("torch") or {}
+    return {
+        "platform": detected.get("platform", "unknown"),
+        "python": detected.get("python", "unknown"),
+        "backend_hint": detected.get("backend_hint", "cpu_or_gpu_not_exposed"),
+        "rocminfo_detected": bool(detected.get("rocminfo_detected", False)),
+        "nvidia_smi": detected.get("nvidia_smi"),
+        "model_dir": detected.get("model_dir", "/models"),
+        "torch": {
+            "available": bool(torch_info.get("available", False)),
+            "cuda_available": bool(torch_info.get("cuda_available", False)),
+            "device_count": int(torch_info.get("device_count", 0)),
+            "version": torch_info.get("version"),
+        },
+    }
+
+
+def _graphql_register_job(_source, _info, input):
+    try:
+        return create_job(input["kind"], input["model"], input.get("parameters") or {})
+    except ValueError as exc:
+        raise GraphQLError(str(exc)) from exc
+
+
+graphql_schema.type_map["Query"].fields["health"].resolve = _graphql_health
+graphql_schema.type_map["Query"].fields["hardware"].resolve = _graphql_hardware
+graphql_schema.type_map["Query"].fields["jobs"].resolve = lambda _source, _info: list_jobs()
+graphql_schema.type_map["Mutation"].fields["registerJob"].resolve = _graphql_register_job
+
+
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "gql-gpu-fabric", "version": "0.2.0"}
+    return {"status": "ok", "service": "gql-gpu-fabric", "version": app.version}
 
 
 @app.get("/hardware")
@@ -57,6 +118,40 @@ def submit_job(request: JobRequest):
         return create_job(request.kind, request.model, request.parameters)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/graphql")
+def graphql_endpoint(payload: dict = Body(...)):
+    """Execute a GraphQL query or mutation over a JSON POST request."""
+    query = payload.get("query")
+    if not isinstance(query, str) or not query.strip():
+        raise HTTPException(status_code=400, detail="'query' must be a non-empty string")
+    if len(query) > 100_000:
+        raise HTTPException(status_code=413, detail="GraphQL query is too large")
+
+    variables = payload.get("variables")
+    if variables is not None and not isinstance(variables, dict):
+        raise HTTPException(status_code=400, detail="'variables' must be a JSON object")
+    operation_name = payload.get("operationName")
+    if operation_name is not None and not isinstance(operation_name, str):
+        raise HTTPException(status_code=400, detail="'operationName' must be a string")
+
+    result = graphql_sync(
+        graphql_schema,
+        query,
+        variable_values=variables,
+        operation_name=operation_name,
+    )
+    response = {"data": result.data}
+    if result.errors:
+        response["errors"] = [
+            {
+                "message": error.message,
+                **({"path": error.path} if error.path else {}),
+            }
+            for error in result.errors
+        ]
+    return response
 
 
 @app.post("/jobs/{job_id}/dispatch")
