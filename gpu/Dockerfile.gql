@@ -1,1 +1,32 @@
+# GQL GPU Fabric — NVIDIA CUDA runtime
+# Build from repository root:
+# docker build -f gpu/Dockerfile.gql -t gql-gpu-fabric:cuda .
+ARG CUDA_IMAGE=nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+FROM ${CUDA_IMAGE}
 
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    MODEL_DIR=/models \
+    HF_HOME=/cache/huggingface
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-pip ca-certificates tini \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system gql \
+    && useradd --system --gid gql --create-home gql \
+    && mkdir -p /opt/gql /models /cache/huggingface \
+    && chown -R gql:gql /opt/gql /models /cache
+
+WORKDIR /opt/gql
+COPY gpu/requirements.txt /tmp/requirements.txt
+RUN python3 -m pip install --no-cache-dir -r /tmp/requirements.txt && rm /tmp/requirements.txt
+COPY --chown=gql:gql gpu/runtime ./runtime
+COPY --chown=gql:gql gpu/schema ./schema
+
+USER gql
+VOLUME ["/models", "/cache"]
+EXPOSE 8080
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["python3", "-m", "uvicorn", "runtime.app:app", "--host", "0.0.0.0", "--port", "8080"]

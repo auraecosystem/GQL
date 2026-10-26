@@ -1,0 +1,18 @@
+profile: default
+api:
+  host: 0.0.0.0
+  port: 8080
+  authentication_required_at_gateway: true
+hardware:
+  preferred_backend: auto
+  supported_backends: [cuda, rocm, cpu]
+workloads:
+  enabled: [inference, training, fine_tuning, evaluation, embedding]
+  submission_executes_workload: false
+storage:
+  model_dir: /models
+  cache_dir: /cache
+safety:
+  run_as_non_root: true
+  expose_docker_socket: false
+  require_authenticated_gateway_for_network_exposure: true

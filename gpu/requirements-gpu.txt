@@ -1,0 +1,2 @@
+# Install a framework wheel compatible with the selected CUDA/ROCm runtime separately.
+-r requirements.txt
