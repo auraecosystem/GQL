@@ -1,0 +1,39 @@
+"""GraphQL schema contract. No GraphQL HTTP endpoint is wired yet."""
+type Query {
+  health: Health!
+  hardware: Hardware!
+  jobs: [Job!]!
+}
+
+type Mutation {
+  registerJob(input: RegisterJobInput!): Job!
+}
+
+type Health {
+  status: String!
+  service: String!
+  version: String!
+}
+
+type Hardware {
+  platform: String!
+  python: String!
+  backend_hint: String!
+  rocminfo_detected: Boolean!
+  model_dir: String!
+}
+
+type Job {
+  id: ID!
+  kind: String!
+  model: String!
+  status: String!
+  created_at: String!
+  note: String!
+}
+
+input RegisterJobInput {
+  kind: String!
+  model: String!
+  parameters: String
+}

@@ -1,0 +1,7 @@
+backend: cuda
+runtime: NVIDIA CUDA
+container_base: nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+framework: optional
+notes:
+  - Install a framework build compatible with the host driver and CUDA runtime.
+  - This metadata file is not a compiler, driver, or CUDA executable.

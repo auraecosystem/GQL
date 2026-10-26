@@ -1,0 +1,11 @@
+name: gql-gpu-fabric
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - ca-certificates
+  - pip:
+      - fastapi==0.115.12
+      - uvicorn[standard]==0.34.0
+      - pydantic==2.10.6
