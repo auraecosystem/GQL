@@ -1,0 +1,84 @@
+name: gql-gpu-fabric
+
+# CPU is the safe default. Enable exactly the hardware profile you intend to run:
+#   docker compose -f gpu/compose.yaml up --build gql-cpu
+#   docker compose -f gpu/compose.yaml --profile cuda up --build gql-cuda
+#   docker compose -f gpu/compose.yaml --profile rocm up --build gql-rocm
+services:
+  gql-cpu:
+    build:
+      context: ..
+      dockerfile: gpu/Dockerfile.cpu
+    ports:
+      - "${GQL_CPU_PORT:-8080}:8080"
+    environment:
+      MODEL_DIR: /models
+      GQL_INPUT_DIR: /inputs
+      GQL_JOB_DB: /cache/gql-jobs.sqlite3
+      GQL_ENABLE_YOLOV7_WORKER: "${GQL_ENABLE_YOLOV7_WORKER:-0}"
+      GQL_ENABLE_CAFFE_SSD_WORKER: "${GQL_ENABLE_CAFFE_SSD_WORKER:-0}"
+    volumes:
+      - ${GQL_MODEL_DIR:-./models}:/models:ro
+      - ${GQL_INPUT_DIR:-./inputs}:/inputs:ro
+      - gql-cpu-cache:/cache
+    restart: unless-stopped
+
+  gql-cuda:
+    profiles: ["cuda"]
+    build:
+      context: ..
+      dockerfile: gpu/Dockerfile.gql
+      args:
+        CUDA_IMAGE: ${GQL_CUDA_IMAGE:-nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04}
+    ports:
+      - "${GQL_CUDA_PORT:-8081}:8080"
+    environment:
+      MODEL_DIR: /models
+      GQL_INPUT_DIR: /inputs
+      GQL_JOB_DB: /cache/gql-jobs.sqlite3
+      GQL_ENABLE_YOLOV7_WORKER: "${GQL_ENABLE_YOLOV7_WORKER:-0}"
+      GQL_ENABLE_CAFFE_SSD_WORKER: "${GQL_ENABLE_CAFFE_SSD_WORKER:-0}"
+    volumes:
+      - ${GQL_MODEL_DIR:-./models}:/models:ro
+      - ${GQL_INPUT_DIR:-./inputs}:/inputs:ro
+      - gql-cuda-cache:/cache
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  gql-rocm:
+    profiles: ["rocm"]
+    build:
+      context: ..
+      dockerfile: gpu/Dockerfile.rocm
+      args:
+        ROCM_IMAGE: ${GQL_ROCM_IMAGE:-rocm/dev-ubuntu-22.04}
+    ports:
+      - "${GQL_ROCM_PORT:-8082}:8080"
+    environment:
+      MODEL_DIR: /models
+      GQL_INPUT_DIR: /inputs
+      GQL_JOB_DB: /cache/gql-jobs.sqlite3
+      GQL_ENABLE_YOLOV7_WORKER: "${GQL_ENABLE_YOLOV7_WORKER:-0}"
+      GQL_ENABLE_CAFFE_SSD_WORKER: "${GQL_ENABLE_CAFFE_SSD_WORKER:-0}"
+    devices:
+      - /dev/kfd:/dev/kfd
+      - /dev/dri:/dev/dri
+    group_add:
+      - video
+      - render
+    volumes:
+      - ${GQL_MODEL_DIR:-./models}:/models:ro
+      - ${GQL_INPUT_DIR:-./inputs}:/inputs:ro
+      - gql-rocm-cache:/cache
+    restart: unless-stopped
+
+volumes:
+  gql-cpu-cache:
+  gql-cuda-cache:
+  gql-rocm-cache:
