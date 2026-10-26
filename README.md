@@ -197,3 +197,38 @@ GQL also has an opt-in Caffe SSD adapter for models exported with a Caffe `deplo
 Submit an inference job with `model: "deploy.prototxt"` and parameters such as `{"weights_path":"trained.caffemodel","input_path":"frame.jpg","confidence_threshold":0.25}`, then dispatch the job normally. Preprocessing uses a 300×300 warped BGR image and mean subtraction (104, 117, 123), matching the supplied training configuration.
 
 **Important limitations:** this adapter expects the deploy network to emit the common Caffe `DetectionOutput` tensor with rows `[image_id, class_id, confidence, xmin, ymin, xmax, ymax]` and normalized coordinates. The training prototxt alone is not a deploy model and does not contain trained weights. If the model emits raw localization, confidence, and prior-box tensors instead, a matching SSD decoder is required. The adapter currently uses CPU OpenCV DNN; real model inference and output compatibility must be verified with the actual deploy files before production use.
+
+
+## Multi-backend runtime foundation
+
+The Compose configuration provides separate CPU, NVIDIA CUDA, and AMD ROCm services while keeping their dependency sets isolated:
+
+- CPU: `docker compose -f gpu/compose.yaml up --build gql-cpu`
+- NVIDIA: `docker compose -f gpu/compose.yaml --profile cuda up --build gql-cuda`
+- AMD ROCm: `docker compose -f gpu/compose.yaml --profile rocm up --build gql-rocm`
+
+Compose resolves the default model and input bind mounts from the repository root (`models/` and `inputs/`). Override them with `GQL_MODEL_DIR` and `GQL_INPUT_DIR`. Model and input mounts are read-only in the containers; job databases use separate persistent cache volumes per backend. The selected host must provide the corresponding GPU runtime and device access.
+
+The CUDA and ROCm Dockerfiles install shared API/OpenCV dependencies first, then install a backend-specific pinned PyTorch wheel set from `gpu/requirements/cuda.txt` or `gpu/requirements/rocm.txt`. These framework pins are a compatibility baseline, not proof that a target GPU/driver combination works. Existing YOLOv7 and Caffe SSD workers still use OpenCV DNN and are not automatically accelerated by installing PyTorch.
+
+### Synchronous inference endpoint
+
+Set a non-empty `GQL_API_TOKEN` in the service environment to enable `POST /v1/inference`. Supply `Authorization: Bearer <token>` and a JSON body such as:
+
+```json
+{
+  "kind": "inference",
+  "model": "yolov7.onnx",
+  "parameters": {
+    "input_path": "frame.jpg",
+    "backend": "cpu",
+    "image_size": 640
+  }
+}
+```
+
+The endpoint dispatches only through an explicitly enabled trusted inference worker and returns the completed job result. It returns 503 when the token is not configured or no worker is available, 401 for missing/invalid credentials, and 422 for invalid requests. The existing `/jobs` control-plane endpoints remain separate; put the service behind a trusted network boundary and configure deployment-level authentication/rate limits before exposing the whole API publicly.
+
+### Verification boundaries
+
+Unit/API contract tests exercise authentication and worker dispatch without requiring a physical GPU. Docker image builds, CUDA/ROCm framework initialization, model-specific output compatibility, and real-device inference must still be verified on compatible hosts; they are not implied by the unit tests.
