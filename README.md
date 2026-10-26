@@ -1,3 +1,4 @@
+[![GQL GPU Fabric CI](https://github.com/auraecosystem/GQL/actions/workflows/ci.yml/badge.svg)](https://github.com/auraecosystem/GQL/actions/workflows/ci.yml)
 # GQL
 
 Let's invent it properly: `gpu/Dockerfile.gql` becomes the foundation of an intelligent, multi-backend AI execution platform for LMLM — supporting training, fine-tuning, inference, multimodal models, API serving, and evaluation.
