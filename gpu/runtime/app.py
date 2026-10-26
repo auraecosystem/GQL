@@ -15,6 +15,7 @@ from runtime.jobs import (
     update_job,
 )
 from runtime.workers import WorkerUnavailable, worker_registry
+from runtime.yolov7 import YOLOv7ONNXWorker
 
 app = FastAPI(
     title="GQL GPU Fabric",
@@ -24,6 +25,10 @@ app = FastAPI(
         "Execution requires an explicitly registered trusted worker."
     ),
 )
+
+# Explicit opt-in prevents enabling inference against an unreviewed model directory.
+if os.getenv("GQL_ENABLE_YOLOV7_WORKER", "").lower() in {"1", "true", "yes"}:
+    worker_registry.register("inference", YOLOv7ONNXWorker())
 
 
 class JobRequest(BaseModel):

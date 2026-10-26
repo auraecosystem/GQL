@@ -177,3 +177,14 @@ This is a proposed structure; the additional files and modules do not exist unti
 My recommendation is to make GQL the compute and container infrastructure beneath LMLM, not another competing model. LMLM remains the intelligence and model-runtime ecosystem; GQL manages the environments and execution resources those models need.
 
 The next implementation milestone is the working multi-backend runtime, including its dependency files, Compose configuration, model-serving API, and automated tests.
+
+
+## YOLOv7 ONNX inference worker
+
+The YOLOv7 adapter is opt-in and handles `inference` jobs using an ONNX model already present in `MODEL_DIR`. It does not download models, accept uploaded executable artifacts, or read image paths outside `GQL_INPUT_DIR`.
+
+Configure the service with `GQL_ENABLE_YOLOV7_WORKER=1`, mount the approved ONNX model into `/models`, and mount input images into `/inputs`. Submit a job with `kind: "inference"`, `model: "yolov7.onnx"`, and parameters such as `{"input_path":"frame.jpg","backend":"cpu","image_size":640}`; then dispatch its returned job ID through `POST /jobs/{job_id}/dispatch`.
+
+Supported image extensions: JPG, JPEG, PNG, WEBP, BMP. `backend` accepts `auto`, `cpu`, or `cuda`; `auto` intentionally uses CPU for predictable compatibility. Explicit CUDA requires an OpenCV build with CUDA DNN support and a compatible host runtime. The detector currently expects decoded YOLO-style rows shaped like `[x, y, width, height, objectness, class scores...]`; validate output semantics against the exact exported ONNX model before production use.
+
+Example container environment: `GQL_ENABLE_YOLOV7_WORKER=1`. Model and input files must be provided through trusted mounted directories. The worker does not make training, fine-tuning, embedding, or evaluation jobs executable.
