@@ -10,7 +10,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1 \
     MODEL_DIR=/models \
     HF_HOME=/cache/huggingface \
-    GQL_JOB_DB=/cache/gql-jobs.sqlite3
+    GQL_JOB_DB=/cache/gql-jobs.sqlite3 \
+    GQL_ENABLE_LOCAL_TRANSFORMERS_WORKER=0
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-pip ca-certificates tini \
