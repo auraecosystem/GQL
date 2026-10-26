@@ -1,4 +1,5 @@
 import unittest
+from runtime import jobs as job_registry
 from runtime.jobs import clear_jobs_for_tests, create_job, list_jobs
 
 
@@ -24,6 +25,17 @@ class JobRegistryTests(unittest.TestCase):
         records = list_jobs()
         records.clear()
         self.assertEqual(len(list_jobs()), 1)
+
+    def test_registry_retains_only_most_recent_jobs(self):
+        original_limit = job_registry.MAX_JOBS
+        job_registry.MAX_JOBS = 2
+        try:
+            create_job("inference", "model/one")
+            create_job("inference", "model/two")
+            create_job("inference", "model/three")
+            self.assertEqual([job["model"] for job in list_jobs()], ["model/two", "model/three"])
+        finally:
+            job_registry.MAX_JOBS = original_limit
 
 
 if __name__ == "__main__":
