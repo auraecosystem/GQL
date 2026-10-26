@@ -188,3 +188,12 @@ Configure the service with `GQL_ENABLE_YOLOV7_WORKER=1`, mount the approved ONNX
 Supported image extensions: JPG, JPEG, PNG, WEBP, BMP. `backend` accepts `auto`, `cpu`, or `cuda`; `auto` intentionally uses CPU for predictable compatibility. Explicit CUDA requires an OpenCV build with CUDA DNN support and a compatible host runtime. The detector currently expects decoded YOLO-style rows shaped like `[x, y, width, height, objectness, class scores...]`; validate output semantics against the exact exported ONNX model before production use.
 
 Example container environment: `GQL_ENABLE_YOLOV7_WORKER=1`. Model and input files must be provided through trusted mounted directories. The worker does not make training, fine-tuning, embedding, or evaluation jobs executable.
+
+
+## Caffe SSD inference worker
+
+GQL also has an opt-in Caffe SSD adapter for models exported with a Caffe `deploy.prototxt` and trained `.caffemodel` weights. Enable it with `GQL_ENABLE_CAFFE_SSD_WORKER=1`; mount both trusted model files in `/models` and images in `/inputs`.
+
+Submit an inference job with `model: "deploy.prototxt"` and parameters such as `{"weights_path":"trained.caffemodel","input_path":"frame.jpg","confidence_threshold":0.25}`, then dispatch the job normally. Preprocessing uses a 300×300 warped BGR image and mean subtraction (104, 117, 123), matching the supplied training configuration.
+
+**Important limitations:** this adapter expects the deploy network to emit the common Caffe `DetectionOutput` tensor with rows `[image_id, class_id, confidence, xmin, ymin, xmax, ymax]` and normalized coordinates. The training prototxt alone is not a deploy model and does not contain trained weights. If the model emits raw localization, confidence, and prior-box tensors instead, a matching SSD decoder is required. The adapter currently uses CPU OpenCV DNN; real model inference and output compatibility must be verified with the actual deploy files before production use.
