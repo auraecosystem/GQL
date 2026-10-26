@@ -22,8 +22,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && chown -R gql:gql /opt/gql /models /cache
 
 WORKDIR /opt/gql
-COPY gpu/requirements/cuda.txt /tmp/requirements.txt
-RUN python3 -m pip install --no-cache-dir -r /tmp/requirements.txt && rm /tmp/requirements.txt
+COPY gpu/requirements.txt /tmp/requirements.txt
+COPY gpu/requirements/cuda.txt /tmp/requirements-backend.txt
+RUN python3 -m pip install --no-cache-dir -r /tmp/requirements.txt \
+    && python3 -m pip install --no-cache-dir -r /tmp/requirements-backend.txt \
+    && rm /tmp/requirements.txt /tmp/requirements-backend.txt
 COPY --chown=gql:gql gpu/runtime ./runtime
 COPY --chown=gql:gql gpu/schema ./schema
 
