@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Any
+import os
 
 from fastapi import Body, FastAPI, HTTPException
 from graphql import GraphQLError, build_schema, graphql_sync
@@ -17,6 +18,16 @@ from runtime.jobs import (
 from runtime.workers import WorkerUnavailable, worker_registry
 from runtime.yolov7 import YOLOv7ONNXWorker
 from runtime.caffe_ssd import CaffeSSDWorker
+
+
+def _configure_optional_workers() -> None:
+    """Register local inference only after an explicit operator opt-in."""
+    if os.getenv("GQL_ENABLE_LOCAL_TRANSFORMERS_WORKER", "").strip().lower() in {"1", "true", "yes"}:
+        from runtime.local_worker import LocalTransformersWorker
+        worker_registry.register("inference", LocalTransformersWorker())
+
+
+_configure_optional_workers()
 
 app = FastAPI(
     title="GQL GPU Fabric",
