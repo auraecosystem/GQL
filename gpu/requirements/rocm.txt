@@ -1,4 +1,8 @@
 # AMD ROCm 6.2.4 framework wheels; keep isolated from CUDA wheels.
--r ../requirements.txt
+fastapi==0.115.12
+uvicorn[standard]==0.34.0
+pydantic==2.10.6
+opencv-python-headless==4.11.0.86
+numpy==2.2.4
 --index-url https://download.pytorch.org/whl/rocm6.2.4
 torch==2.6.0
