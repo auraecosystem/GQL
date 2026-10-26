@@ -72,6 +72,8 @@ class YOLOv7ONNXWorker:
             if not hasattr(cv2.dnn, "DNN_BACKEND_CUDA") or not hasattr(cv2.dnn, "DNN_TARGET_CUDA"):
                 raise RuntimeError("This OpenCV build does not expose CUDA DNN support")
             try:
+                if not hasattr(cv2, "cuda") or cv2.cuda.getCudaEnabledDeviceCount() < 1:
+                    raise RuntimeError("No CUDA-enabled OpenCV device is available")
                 net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
                 net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
                 actual_backend = "cuda"
