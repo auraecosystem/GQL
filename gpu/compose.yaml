@@ -15,6 +15,7 @@ services:
       MODEL_DIR: /models
       GQL_INPUT_DIR: /inputs
       GQL_JOB_DB: /cache/gql-jobs.sqlite3
+      GQL_API_TOKEN: "${GQL_API_TOKEN:-}"
       GQL_ENABLE_YOLOV7_WORKER: "${GQL_ENABLE_YOLOV7_WORKER:-0}"
       GQL_ENABLE_CAFFE_SSD_WORKER: "${GQL_ENABLE_CAFFE_SSD_WORKER:-0}"
     volumes:
@@ -36,6 +37,7 @@ services:
       MODEL_DIR: /models
       GQL_INPUT_DIR: /inputs
       GQL_JOB_DB: /cache/gql-jobs.sqlite3
+      GQL_API_TOKEN: "${GQL_API_TOKEN:-}"
       GQL_ENABLE_YOLOV7_WORKER: "${GQL_ENABLE_YOLOV7_WORKER:-0}"
       GQL_ENABLE_CAFFE_SSD_WORKER: "${GQL_ENABLE_CAFFE_SSD_WORKER:-0}"
     volumes:
@@ -64,6 +66,7 @@ services:
       MODEL_DIR: /models
       GQL_INPUT_DIR: /inputs
       GQL_JOB_DB: /cache/gql-jobs.sqlite3
+      GQL_API_TOKEN: "${GQL_API_TOKEN:-}"
       GQL_ENABLE_YOLOV7_WORKER: "${GQL_ENABLE_YOLOV7_WORKER:-0}"
       GQL_ENABLE_CAFFE_SSD_WORKER: "${GQL_ENABLE_CAFFE_SSD_WORKER:-0}"
     devices:
