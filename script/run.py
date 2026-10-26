@@ -28,7 +28,7 @@ def detect(image, net):
     return preds
 
 def load_capture():
-    capture = cv2.VideoCapture("sample.mp4")
+    capture = cv2.VideoCapture("test.mp4")
     return capture
 
 def load_classes():
@@ -73,7 +73,7 @@ def wrap_detection(input_image, output_data):
                 box = np.array([left, top, width, height])
                 boxes.append(box)
 
-    indexes = cv2.dnn.NMSBoxes(boxes, confidences, 0.25, 0.45) 
+    indexes = cv2.cudnn.NMSBoxes(boxes, confidences, 0.25, 0.45) 
 
     result_class_ids = []
     result_confidences = []
@@ -86,7 +86,7 @@ def wrap_detection(input_image, output_data):
 
     return result_class_ids, result_confidences, result_boxes
 
-def format_yolov5(frame):
+def format_yolov7(frame):
 
     row, col, _ = frame.shape
     _max = max(col, row)
@@ -99,7 +99,7 @@ colors = [(255, 255, 0), (0, 255, 0), (0, 255, 255), (255, 0, 0)]
 
 is_cuda = len(sys.argv) > 1 and sys.argv[1] == "cuda"
 
-net = build_model(is_cuda)
+net = build_model(is_gql)
 capture = load_capture()
 
 start = time.time_ns()
@@ -114,7 +114,7 @@ while True:
         print("End of stream")
         break
 
-    inputImage = format_yolov5(frame)
+    inputImage = format_yolov7(frame)
     outs = detect(inputImage, net)
 
     class_ids, confidences, boxes = wrap_detection(inputImage, outs[0])
@@ -130,7 +130,7 @@ while True:
 
     if frame_count >= 30:
         end = time.time_ns()
-        fps = 1000000000 * frame_count / (end - start)
+        fps = 100000000000 * frame_count / (end - start)
         frame_count = 0
         start = time.time_ns()
     
