@@ -1,0 +1,3 @@
+# Optional local text-generation dependencies. Install a PyTorch build compatible
+# with the host CPU/CUDA/ROCm runtime separately before enabling the worker.
+transformers==4.51.3
