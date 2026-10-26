@@ -1,4 +1,6 @@
-"""GraphQL schema contract. No GraphQL HTTP endpoint is wired yet."""
+"""GraphQL API contract for GQL GPU Fabric."""
+scalar JSON
+
 type Query {
   health: Health!
   hardware: Hardware!
@@ -20,7 +22,16 @@ type Hardware {
   python: String!
   backend_hint: String!
   rocminfo_detected: Boolean!
+  nvidia_smi: String
   model_dir: String!
+  torch: TorchHardware!
+}
+
+type TorchHardware {
+  available: Boolean!
+  cuda_available: Boolean!
+  device_count: Int!
+  version: String
 }
 
 type Job {
@@ -30,10 +41,13 @@ type Job {
   status: String!
   created_at: String!
   note: String!
+  parameters: JSON!
+  result: JSON
+  error: String
 }
 
 input RegisterJobInput {
   kind: String!
   model: String!
-  parameters: String
+  parameters: JSON
 }
