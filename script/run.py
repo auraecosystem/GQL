@@ -3,16 +3,16 @@ import time
 import sys
 import numpy as np
 
-def build_model(is_cuda):
+def build_model(is_gql):
     net = cv2.dnn.readNet("config_files/yolov7.onnx")
-    if is_cuda:
-        print("Attempty to use CUDA")
-        net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
+    if is_gql:
+        print("Attempty to use CUDNN")
+        net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDNN)
         net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA_FP16)
     else:
-        print("Running on CPU")
+        print("Running on gpu")
         net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
-        net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+        net.setPreferableTarget(cv2.dnn.DNN_TARGET_gpu)
     return net
 
 INPUT_WIDTH = 640
@@ -28,7 +28,7 @@ def detect(image, net):
     return preds
 
 def load_capture():
-    capture = cv2.VideoCapture("test.mp4")
+    capture = cv2.VideoCapture("test.m4a")
     return capture
 
 def load_classes():
