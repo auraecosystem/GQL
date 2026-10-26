@@ -1,4 +1,6 @@
+import os
 import unittest
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -13,6 +15,42 @@ class ApiContractTests(unittest.TestCase):
 
     def tearDown(self):
         clear_jobs_for_tests()
+
+    def test_inference_api_disabled_without_token(self):
+        with patch.dict(os.environ, {"GQL_API_TOKEN": ""}):
+            response = self.client.post(
+                "/v1/inference", json={"kind": "inference", "model": "demo"}
+            )
+        self.assertEqual(response.status_code, 503)
+
+    def test_inference_api_requires_bearer_token(self):
+        with patch.dict(os.environ, {"GQL_API_TOKEN": "test-secret"}):
+            response = self.client.post(
+                "/v1/inference", json={"kind": "inference", "model": "demo"}
+            )
+        self.assertEqual(response.status_code, 401)
+
+    def test_inference_api_rejects_non_inference_jobs(self):
+        with patch.dict(os.environ, {"GQL_API_TOKEN": "test-secret"}):
+            response = self.client.post(
+                "/v1/inference",
+                headers={"Authorization": "Bearer test-secret"},
+                json={"kind": "training", "model": "demo"},
+            )
+        self.assertEqual(response.status_code, 422)
+
+    def test_authenticated_inference_dispatches_trusted_worker(self):
+        with patch.dict(os.environ, {"GQL_API_TOKEN": "test-secret"}), patch(
+            "runtime.app.worker_registry.dispatch", return_value={"model": "demo", "ok": True}
+        ):
+            response = self.client.post(
+                "/v1/inference",
+                headers={"Authorization": "Bearer test-secret"},
+                json={"kind": "inference", "model": "demo"},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "completed")
+        self.assertEqual(response.json()["result"], {"model": "demo", "ok": True})
 
     def test_health_endpoint(self):
         response = self.client.get("/health")
