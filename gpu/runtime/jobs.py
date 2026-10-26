@@ -2,6 +2,7 @@
 import json
 import os
 import sqlite3
+from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
@@ -35,6 +36,16 @@ def _connect():
     return connection
 
 
+@contextmanager
+def _database():
+    connection = _connect()
+    try:
+        with connection:
+            yield connection
+    finally:
+        connection.close()
+
+
 def _decode(row):
     if row is None:
         return None
@@ -48,6 +59,8 @@ def create_job(kind, model, parameters=None):
         raise ValueError(f"Unsupported job kind: {kind}")
     if not isinstance(model, str) or not model.strip():
         raise ValueError("Model must be a non-empty string")
+    if parameters is None:
+        parameters = {}
     if not isinstance(parameters, dict):
         raise ValueError("Parameters must be an object")
 
@@ -55,13 +68,13 @@ def create_job(kind, model, parameters=None):
         "id": str(uuid4()),
         "kind": kind,
         "model": model.strip(),
-        "parameters": deepcopy(parameters or {}),
+        "parameters": deepcopy(parameters),
         "status": "accepted",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "note": "Registered only; dispatch requires a trusted worker adapter.",
     }
     payload = json.dumps(job, separators=(",", ":"), ensure_ascii=False)
-    with _lock, _connect() as connection:
+    with _lock, _database() as connection:
         connection.execute(
             "INSERT INTO jobs (id, created_at, status, payload) VALUES (?, ?, ?, ?)",
             (job["id"], job["created_at"], job["status"], payload),
@@ -74,20 +87,20 @@ def create_job(kind, model, parameters=None):
 
 
 def get_job(job_id):
-    with _lock, _connect() as connection:
+    with _lock, _database() as connection:
         row = connection.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
         return deepcopy(_decode(row))
 
 
 def list_jobs():
-    with _lock, _connect() as connection:
+    with _lock, _database() as connection:
         rows = connection.execute("SELECT * FROM jobs ORDER BY created_at ASC").fetchall()
         return deepcopy([_decode(row) for row in rows])
 
 
 def claim_job(job_id):
     """Atomically claim an accepted job so concurrent requests cannot run it twice."""
-    with _lock, _connect() as connection:
+    with _lock, _database() as connection:
         cursor = connection.execute(
             "UPDATE jobs SET status = 'running' WHERE id = ? AND status = 'accepted'",
             (job_id,),
@@ -97,14 +110,15 @@ def claim_job(job_id):
 
 def update_job(job_id, expected_status, status, **fields):
     """Transition a job only if it is still in the expected lifecycle state."""
-    with _lock, _connect() as connection:
+    with _lock, _database() as connection:
+        connection.execute("BEGIN IMMEDIATE")
         row = connection.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
         if row is None or row["status"] != expected_status:
             return False
         job = json.loads(row["payload"])
         job.update(fields)
         job["status"] = status
-        connection.execute(
+        cursor = connection.execute(
             "UPDATE jobs SET status = ?, payload = ? WHERE id = ? AND status = ?",
             (
                 status,
@@ -113,9 +127,9 @@ def update_job(job_id, expected_status, status, **fields):
                 expected_status,
             ),
         )
-        return True
+        return cursor.rowcount == 1
 
 
 def clear_jobs_for_tests():
-    with _lock, _connect() as connection:
+    with _lock, _database() as connection:
         connection.execute("DELETE FROM jobs")
