@@ -18,8 +18,8 @@ services:
       GQL_ENABLE_YOLOV7_WORKER: "${GQL_ENABLE_YOLOV7_WORKER:-0}"
       GQL_ENABLE_CAFFE_SSD_WORKER: "${GQL_ENABLE_CAFFE_SSD_WORKER:-0}"
     volumes:
-      - ${GQL_MODEL_DIR:-./models}:/models:ro
-      - ${GQL_INPUT_DIR:-./inputs}:/inputs:ro
+      - ${GQL_MODEL_DIR:-../models}:/models:ro
+      - ${GQL_INPUT_DIR:-../inputs}:/inputs:ro
       - gql-cpu-cache:/cache
     restart: unless-stopped
 
@@ -39,8 +39,8 @@ services:
       GQL_ENABLE_YOLOV7_WORKER: "${GQL_ENABLE_YOLOV7_WORKER:-0}"
       GQL_ENABLE_CAFFE_SSD_WORKER: "${GQL_ENABLE_CAFFE_SSD_WORKER:-0}"
     volumes:
-      - ${GQL_MODEL_DIR:-./models}:/models:ro
-      - ${GQL_INPUT_DIR:-./inputs}:/inputs:ro
+      - ${GQL_MODEL_DIR:-../models}:/models:ro
+      - ${GQL_INPUT_DIR:-../inputs}:/inputs:ro
       - gql-cuda-cache:/cache
     deploy:
       resources:
@@ -73,8 +73,8 @@ services:
       - video
       - render
     volumes:
-      - ${GQL_MODEL_DIR:-./models}:/models:ro
-      - ${GQL_INPUT_DIR:-./inputs}:/inputs:ro
+      - ${GQL_MODEL_DIR:-../models}:/models:ro
+      - ${GQL_INPUT_DIR:-../inputs}:/inputs:ro
       - gql-rocm-cache:/cache
     restart: unless-stopped
 
