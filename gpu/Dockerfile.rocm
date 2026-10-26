@@ -4,8 +4,11 @@ FROM ${ROCM_IMAGE}
 ENV DEBIAN_FRONTEND=noninteractive PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 MODEL_DIR=/models GQL_INPUT_DIR=/inputs HF_HOME=/cache/huggingface GQL_JOB_DB=/cache/gql-jobs.sqlite3
 RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-pip ca-certificates tini && rm -rf /var/lib/apt/lists/*
 WORKDIR /opt/gql
-COPY gpu/requirements/rocm.txt /tmp/requirements.txt
-RUN python3 -m pip install --no-cache-dir -r /tmp/requirements.txt && rm /tmp/requirements.txt
+COPY gpu/requirements.txt /tmp/requirements.txt
+COPY gpu/requirements/rocm.txt /tmp/requirements-backend.txt
+RUN python3 -m pip install --no-cache-dir -r /tmp/requirements.txt \
+    && python3 -m pip install --no-cache-dir -r /tmp/requirements-backend.txt \
+    && rm /tmp/requirements.txt /tmp/requirements-backend.txt
 COPY gpu/runtime ./runtime
 COPY gpu/schema ./schema
 RUN useradd --system --create-home gql && mkdir -p /models /inputs /cache && chown -R gql:gql /opt/gql /models /inputs /cache
