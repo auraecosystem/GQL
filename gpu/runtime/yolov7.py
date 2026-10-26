@@ -34,10 +34,12 @@ class YOLOv7ONNXWorker:
             raise ValueError("Job parameters must be an object")
 
         model_path = self._contained_file(self.model_dir, job.get("model"), suffix=".onnx")
-        image_path = self._contained_file(self.input_dir, parameters.get("input_path"), suffix=".jpg")
-        # Permit common image suffixes while retaining strict root-directory containment.
-        if parameters.get("input_path", "").lower().endswith((".jpeg", ".png", ".webp", ".bmp")):
-            image_path = self._contained_file(self.input_dir, parameters.get("input_path"), suffix=Path(parameters["input_path"]).suffix.lower())
+        input_value = parameters.get("input_path")
+        if not isinstance(input_value, str) or Path(input_value).suffix.lower() not in {".jpg", ".jpeg", ".png", ".webp", ".bmp"}:
+            raise ValueError("input_path must reference a JPG, JPEG, PNG, WEBP, or BMP image")
+        image_path = self._contained_file(
+            self.input_dir, input_value, suffix=Path(input_value).suffix.lower()
+        )
         image_size = parameters.get("image_size", 640)
         if isinstance(image_size, bool) or not isinstance(image_size, int) or not 64 <= image_size <= 2048:
             raise ValueError("image_size must be an integer between 64 and 2048")
@@ -75,15 +77,6 @@ class YOLOv7ONNXWorker:
                 actual_backend = "cuda"
             except Exception as exc:
                 raise RuntimeError("OpenCV could not configure CUDA DNN") from exc
-        elif backend == "auto":
-            if hasattr(cv2.dnn, "DNN_BACKEND_CUDA") and hasattr(cv2.dnn, "DNN_TARGET_CUDA"):
-                try:
-                    net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
-                    net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
-                    actual_backend = "cuda"
-                except Exception:
-                    net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
-                    net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
         else:
             net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
             net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
