@@ -20,13 +20,21 @@ def create_job(kind, model, parameters=None):
         "parameters": deepcopy(parameters or {}),
         "status": "accepted",
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "note": "Registered only; no worker is configured to execute this job.",
+        "note": "Registered only; dispatch requires a trusted worker adapter.",
     }
     with _lock:
         _jobs.append(job)
         if len(_jobs) > MAX_JOBS:
             del _jobs[: len(_jobs) - MAX_JOBS]
     return deepcopy(job)
+
+
+def get_job(job_id):
+    with _lock:
+        for job in _jobs:
+            if job["id"] == job_id:
+                return deepcopy(job)
+    return None
 
 
 def list_jobs():
