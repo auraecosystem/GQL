@@ -1,5 +1,5 @@
 FROM python:3.11-slim
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 MODEL_DIR=/models HF_HOME=/cache/huggingface
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 MODEL_DIR=/models HF_HOME=/cache/huggingface GQL_JOB_DB=/cache/gql-jobs.sqlite3
 RUN apt-get update && apt-get install -y --no-install-recommends tini ca-certificates && rm -rf /var/lib/apt/lists/* && useradd --system --create-home gql
 WORKDIR /opt/gql
 COPY gpu/requirements.txt /tmp/requirements.txt
