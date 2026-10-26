@@ -9,6 +9,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     MODEL_DIR=/models \
+    GQL_INPUT_DIR=/inputs \
     HF_HOME=/cache/huggingface \
     GQL_JOB_DB=/cache/gql-jobs.sqlite3
 
@@ -17,7 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system gql \
     && useradd --system --gid gql --create-home gql \
-    && mkdir -p /opt/gql /models /cache/huggingface \
+    && mkdir -p /opt/gql /models /inputs /cache/huggingface \
     && chown -R gql:gql /opt/gql /models /cache
 
 WORKDIR /opt/gql
@@ -27,7 +28,7 @@ COPY --chown=gql:gql gpu/runtime ./runtime
 COPY --chown=gql:gql gpu/schema ./schema
 
 USER gql
-VOLUME ["/models", "/cache"]
+VOLUME ["/models", "/inputs", "/cache"]
 EXPOSE 8080
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["python3", "-m", "uvicorn", "runtime.app:app", "--host", "0.0.0.0", "--port", "8080"]
