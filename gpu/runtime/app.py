@@ -1,8 +1,9 @@
 from pathlib import Path
 from typing import Any
 import os
+import secrets
 
-from fastapi import Body, FastAPI, HTTPException
+from fastapi import Body, FastAPI, Header, HTTPException
 from graphql import GraphQLError, build_schema, graphql_sync
 from graphql.language import value_from_ast_untyped
 from pydantic import BaseModel, Field
@@ -216,3 +217,32 @@ def dispatch_job(job_id: str):
         result=result,
     )
     return {"job_id": job_id, "status": "completed", "result": result}
+
+
+@app.post("/v1/inference")
+def serve_inference(
+    request: JobRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Authenticated synchronous inference endpoint over a trusted worker.
+
+    This endpoint is disabled until an operator configures GQL_API_TOKEN.
+    Existing job-control and GraphQL routes remain separate.
+    """
+    configured_token = os.getenv("GQL_API_TOKEN", "")
+    if not configured_token:
+        raise HTTPException(status_code=503, detail="Inference API is disabled; configure GQL_API_TOKEN")
+    expected = f"Bearer {configured_token}"
+    if not authorization or not secrets.compare_digest(authorization, expected):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or missing bearer token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if request.kind != "inference":
+        raise HTTPException(status_code=422, detail="This endpoint accepts inference jobs only")
+    try:
+        job = create_job(request.kind, request.model, request.parameters)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return dispatch_job(job["id"])
