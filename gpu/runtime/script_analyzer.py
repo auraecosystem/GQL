@@ -32,7 +32,7 @@ def _safe_file_name(name: Any) -> str:
         raise WorkerUnavailable("Each script key must be a short relative file path.")
     normalized = name.replace("\\", "/")
     path = PurePosixPath(normalized)
-    if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+    if path.is_absolute() or (path.parts and ":" in path.parts[0]) or any(part in {"", ".", ".."} for part in path.parts):
         raise WorkerUnavailable("Script paths must be normalized relative paths without traversal.")
     if path.suffix.lower() not in SUPPORTED_SUFFIXES:
         raise WorkerUnavailable("Only JavaScript/TypeScript source files are supported.")
