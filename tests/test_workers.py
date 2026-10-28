@@ -19,20 +19,46 @@ class FailingWorker:
 
 class WorkerRegistryTests(unittest.TestCase):
     def test_dispatch_without_worker_fails_closed(self):
-        registry = WorkerRegistry()
         with self.assertRaises(WorkerUnavailable):
-            registry.dispatch({"kind": "inference"})
+            WorkerRegistry().dispatch({"kind": "inference"})
 
     def test_registered_worker_receives_job(self):
         registry = WorkerRegistry()
         registry.register("inference", EchoWorker())
-        result = registry.dispatch({"kind": "inference", "model": "demo"})
-        self.assertEqual(result, {"model": "demo", "accepted": True})
+        self.assertEqual(
+            registry.dispatch({"kind": "inference", "model": "demo"}),
+            {"model": "demo", "accepted": True},
+        )
 
     def test_rejects_object_without_execute(self):
-        registry = WorkerRegistry()
         with self.assertRaises(ValueError):
-            registry.register("inference", object())
+            WorkerRegistry().register("inference", object())
+
+    def test_multiple_workers_coexist_and_require_explicit_selection(self):
+        registry = WorkerRegistry()
+        registry.register("inference", EchoWorker(), name="echo")
+        registry.register("inference", FailingWorker(), name="failing")
+        self.assertEqual(registry.available("inference"), ["echo", "failing"])
+        with self.assertRaisesRegex(WorkerUnavailable, "Set parameters.worker"):
+            registry.dispatch({"kind": "inference", "parameters": {}})
+        result = registry.dispatch({
+            "kind": "inference", "model": "demo",
+            "parameters": {"worker": "echo"},
+        })
+        self.assertTrue(result["accepted"])
+
+    def test_unknown_worker_selection_fails_closed(self):
+        registry = WorkerRegistry()
+        registry.register("inference", EchoWorker(), name="echo")
+        with self.assertRaisesRegex(WorkerUnavailable, "not configured"):
+            registry.dispatch({"kind": "inference", "parameters": {"worker": "missing"}})
+
+    def test_unregister_one_named_worker_preserves_other_workers(self):
+        registry = WorkerRegistry()
+        registry.register("inference", EchoWorker(), name="echo")
+        registry.register("inference", FailingWorker(), name="failing")
+        registry.unregister("inference", "failing")
+        self.assertEqual(registry.available("inference"), ["echo"])
 
 
 class DispatchEndpointTests(unittest.TestCase):
@@ -45,9 +71,9 @@ class DispatchEndpointTests(unittest.TestCase):
         worker_registry.unregister("inference")
         clear_jobs_for_tests()
 
-    def _create_job(self):
+    def _create_job(self, parameters=None):
         created = self.client.post(
-            "/jobs", json={"kind": "inference", "model": "demo", "parameters": {}}
+            "/jobs", json={"kind": "inference", "model": "demo", "parameters": parameters or {}}
         )
         self.assertEqual(created.status_code, 202)
         return created.json()["id"]
@@ -71,9 +97,24 @@ class DispatchEndpointTests(unittest.TestCase):
         self.assertEqual(response.json()["status"], "completed")
         self.assertEqual(response.json()["result"]["model"], "demo")
         self.assertEqual(get_job(job_id)["status"], "completed")
+        self.assertEqual(self.client.post(f"/jobs/{job_id}/dispatch").status_code, 409)
 
-        duplicate = self.client.post(f"/jobs/{job_id}/dispatch")
-        self.assertEqual(duplicate.status_code, 409)
+    def test_multiple_registered_workers_can_be_selected_through_api(self):
+        worker_registry.register("inference", EchoWorker(), name="echo")
+        worker_registry.register("inference", FailingWorker(), name="failing")
+        job_id = self._create_job({"worker": "echo"})
+        response = self.client.post(f"/jobs/{job_id}/dispatch")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["result"]["accepted"], True)
+
+    def test_ambiguous_worker_selection_returns_503_and_keeps_job_accepted(self):
+        worker_registry.register("inference", EchoWorker(), name="echo")
+        worker_registry.register("inference", FailingWorker(), name="failing")
+        job_id = self._create_job()
+        response = self.client.post(f"/jobs/{job_id}/dispatch")
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("Multiple workers", response.json()["detail"])
+        self.assertEqual(get_job(job_id)["status"], "accepted")
 
     def test_worker_failure_is_recorded_without_leaking_details(self):
         worker_registry.register("inference", FailingWorker())
