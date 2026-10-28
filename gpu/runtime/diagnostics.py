@@ -67,7 +67,10 @@ def collect_diagnostics() -> dict:
         backend = "cpu_or_gpu_not_exposed"
 
     return {
-        "status": "ok" if all(\n            checks[key]["exists"] and checks[key]["readable"]\n            for key in ("model_directory", "input_directory")\n        ) else "degraded",
+        "status": "ok" if all(
+            checks[key]["exists"] and checks[key]["readable"]
+            for key in ("model_directory", "input_directory")
+        ) else "degraded",
         "backend_hint": backend,
         "checks": checks,
         "nvidia_smi": nvidia_smi,
