@@ -5,7 +5,7 @@ import secrets
 
 from fastapi import Body, FastAPI, Header, HTTPException
 from graphql import GraphQLError, build_schema, graphql_sync
-from graphql.language import value_from_ast_untyped
+from graphql.utilities import value_from_ast_untyped
 from pydantic import BaseModel, Field
 
 from runtime.hardware import detect_hardware
