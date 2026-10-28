@@ -35,3 +35,9 @@ The endpoint dispatches only through an explicitly enabled trusted worker. It re
 ## Validation limits
 
 Unit/API tests cover the serving contract without requiring a physical GPU. Docker builds, framework initialization, model output compatibility, and real-device inference must be tested on compatible hosts. No training or fine-tuning execution is implied by this serving foundation.
+
+## Read-only runtime diagnostics
+
+Use `GET /diagnostics` to inspect local GPU runtime visibility and whether the configured model and input mounts are readable. The response includes best-effort probes for `nvidia-smi`, `nvcc`, and `rocminfo`, plus NVIDIA/ROCm device-node visibility. It reports `ok` when both workload directories exist and are readable, or `degraded` otherwise.
+
+This is an advisory diagnostic, not proof that a particular model can run. A CPU-only deployment may legitimately report no GPU runtime. The endpoint does not install drivers, change configuration, scan the LAN, or contact external MAC-vendor services. As with the existing hardware endpoint, place the API behind appropriate access controls before exposing infrastructure details publicly.
