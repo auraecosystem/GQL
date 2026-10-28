@@ -9,6 +9,7 @@ from graphql.language import value_from_ast_untyped
 from pydantic import BaseModel, Field
 
 from runtime.hardware import detect_hardware
+from runtime.diagnostics import collect_diagnostics
 from runtime.jobs import (
     claim_job,
     create_job,
@@ -118,6 +119,12 @@ def health():
 @app.get("/hardware")
 def hardware():
     return detect_hardware()
+
+
+@app.get("/diagnostics")
+def diagnostics():
+    """Return read-only runtime, GPU visibility, and mount diagnostics."""
+    return collect_diagnostics()
 
 
 @app.get("/jobs")
