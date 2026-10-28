@@ -101,5 +101,19 @@ class GraphQLApiTests(unittest.TestCase):
         self.assertIsNone(response.json()["data"])
 
 
+    def test_analyze_scripts_mutation_dispatches_agent(self):
+        expected = {"agent": "script_analyzer_bot", "executed_source": False, "execution_order": ["main.js"]}
+        with patch("runtime.app.worker_registry.dispatch", return_value=expected) as dispatch:
+            response = self.client.post(
+                "/graphql",
+                json={
+                    "query": "mutation Analyze($input: AnalyzeScriptsInput!) { analyzeScripts(input: $input) }",
+                    "variables": {"input": {"scripts": {"main.js": "export {};"}}},
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data"]["analyzeScripts"], expected)
+        dispatch.assert_called_once()
+
 if __name__ == "__main__":
     unittest.main()

@@ -5,7 +5,7 @@ import secrets
 
 from fastapi import Body, FastAPI, Header, HTTPException
 from graphql import GraphQLError, build_schema, graphql_sync
-from graphql.language import value_from_ast_untyped
+from graphql.utilities import value_from_ast_untyped
 from pydantic import BaseModel, Field
 
 from runtime.hardware import detect_hardware
@@ -25,6 +25,9 @@ def _configure_optional_workers() -> None:
     if os.getenv("GQL_ENABLE_LOCAL_TRANSFORMERS_WORKER", "").strip().lower() in {"1", "true", "yes"}:
         from runtime.local_worker import LocalTransformersWorker
         worker_registry.register("inference", LocalTransformersWorker())
+    if os.getenv("GQL_ENABLE_SCRIPT_ANALYZER_AGENT", "").strip().lower() in {"1", "true", "yes"}:
+        from runtime.script_analyzer import ScriptAnalyzerWorker
+        worker_registry.register("script_analysis", ScriptAnalyzerWorker())
 
 
 _configure_optional_workers()
@@ -44,9 +47,13 @@ if os.getenv("GQL_ENABLE_YOLOV7_WORKER", "").lower() in {"1", "true", "yes"}:
 
 
 class JobRequest(BaseModel):
-    kind: str = Field(description="inference, training, fine_tuning, evaluation, or embedding")
+    kind: str = Field(description="inference, training, fine_tuning, evaluation, embedding, or script_analysis")
     model: str = Field(min_length=1, max_length=300)
     parameters: dict = Field(default_factory=dict)
+
+
+class ScriptAnalysisRequest(BaseModel):
+    scripts: dict[str, str] = Field(min_length=1, description="Relative source paths mapped to source text")
 
 
 def _json_scalar_value(value: Any) -> Any:
@@ -99,10 +106,23 @@ def _graphql_register_job(_source, _info, input):
         raise GraphQLError(str(exc)) from exc
 
 
+def _graphql_analyze_scripts(_source, _info, input):
+    try:
+        return worker_registry.dispatch({
+            "id": "graphql-script-analysis",
+            "kind": "script_analysis",
+            "model": "script-analyzer",
+            "parameters": {"scripts": input["scripts"]},
+        })
+    except WorkerUnavailable as exc:
+        raise GraphQLError(str(exc)) from exc
+
+
 graphql_schema.type_map["Query"].fields["health"].resolve = _graphql_health
 graphql_schema.type_map["Query"].fields["hardware"].resolve = _graphql_hardware
 graphql_schema.type_map["Query"].fields["jobs"].resolve = lambda _source, _info: list_jobs()
 graphql_schema.type_map["Mutation"].fields["registerJob"].resolve = _graphql_register_job
+graphql_schema.type_map["Mutation"].fields["analyzeScripts"].resolve = _graphql_analyze_scripts
 
 
 @app.get("/health")
@@ -212,6 +232,32 @@ def dispatch_job(job_id: str):
         result=result,
     )
     return {"job_id": job_id, "status": "completed", "result": result}
+
+
+@app.post("/v1/agents/script-analyzer")
+def analyze_scripts(
+    request: ScriptAnalysisRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Run the opt-in, static-only script analyzer using the configured API token."""
+    configured_token = os.getenv("GQL_API_TOKEN", "")
+    if not configured_token:
+        raise HTTPException(status_code=503, detail="Agent API is disabled; configure GQL_API_TOKEN")
+    expected = f"Bearer {configured_token}"
+    if not authorization or not secrets.compare_digest(authorization, expected):
+        raise HTTPException(status_code=401, detail="Invalid or missing bearer token", headers={"WWW-Authenticate": "Bearer"})
+    try:
+        result = worker_registry.dispatch({
+            "id": "script-analysis-request",
+            "kind": "script_analysis",
+            "model": "script-analyzer",
+            "parameters": {"scripts": request.scripts},
+        })
+    except WorkerUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="Script analysis failed") from exc
+    return result
 
 
 @app.post("/v1/inference")

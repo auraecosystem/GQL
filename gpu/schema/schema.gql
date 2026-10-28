@@ -9,6 +9,11 @@ type Query {
 
 type Mutation {
   registerJob(input: RegisterJobInput!): Job!
+  analyzeScripts(input: AnalyzeScriptsInput!): JSON!
+}
+
+input AnalyzeScriptsInput {
+  scripts: JSON!
 }
 
 type Health {
