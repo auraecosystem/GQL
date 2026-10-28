@@ -9,7 +9,7 @@ from pathlib import Path
 from threading import RLock
 from uuid import uuid4
 
-ALLOWED_KINDS = {"inference", "training", "fine_tuning", "evaluation", "embedding"}
+ALLOWED_KINDS = {"inference", "training", "fine_tuning", "evaluation", "embedding", "script_analysis"}
 MAX_JOBS = 1000
 _lock = RLock()
 
