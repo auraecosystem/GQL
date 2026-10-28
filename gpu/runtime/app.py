@@ -18,7 +18,6 @@ from runtime.jobs import (
 )
 from runtime.workers import WorkerUnavailable, worker_registry
 from runtime.yolov7 import YOLOv7ONNXWorker
-from runtime.caffe_ssd import CaffeSSDWorker
 
 
 def _configure_optional_workers() -> None:
@@ -42,10 +41,6 @@ app = FastAPI(
 # Explicit opt-in prevents enabling inference against an unreviewed model directory.
 if os.getenv("GQL_ENABLE_YOLOV7_WORKER", "").lower() in {"1", "true", "yes"}:
     worker_registry.register("inference", YOLOv7ONNXWorker())
-
-# Use a separate opt-in for Caffe SSD; it takes precedence if both are enabled.
-if os.getenv("GQL_ENABLE_CAFFE_SSD_WORKER", "").lower() in {"1", "true", "yes"}:
-    worker_registry.register("inference", CaffeSSDWorker())
 
 
 class JobRequest(BaseModel):

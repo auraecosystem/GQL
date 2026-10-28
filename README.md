@@ -627,3 +627,4 @@ See the repository's license file for the applicable terms. If no license file i
 
 **Project:** [auraecosystem/GQL](https://github.com/auraecosystem/GQL)  
 **CI workflow:** [GQL GPU Fabric CI](https://github.com/auraecosystem/GQL/actions/workflows/ci.yml)
+Example container environment: `GQL_ENABLE_YOLOV7_WORKER=1`. Model and input files must be provided through trusted mounted directories. The worker does not make training, fine-tuning, embedding, or evaluation jobs executable.
