@@ -423,6 +423,7 @@ The worker expects an ONNX model in `MODEL_DIR` (normally mounted at `/models`) 
 
 ```json
 {
+  "worker": "yolov7_onnx",
   "input_path": "frame.jpg",
   "backend": "cpu",
   "image_size": 640
@@ -445,7 +446,7 @@ Mount a compatible Caffe deploy network and trained weights under `/models`. Exa
 
 ```json
 {
-  "weights_path": "trained.caffemodel",
+  "worker": "caffe_ssd",
   "input_path": "frame.jpg",
   "confidence_threshold": 0.25
 }
@@ -467,7 +468,13 @@ This worker is intended for local text generation using model artifacts availabl
 
 ### Worker selection
 
-The YOLOv7 and Caffe SSD adapters both handle inference jobs and are registered only when explicitly enabled. If multiple inference adapters are enabled, the Caffe SSD adapter takes precedence in the current application initialization. Configure only the adapter you intend to use unless you have verified the registration behavior for your deployment.
+Each enabled inference adapter is registered by a stable name. Use `parameters.worker` when more than one adapter is enabled:
+
+- `yolov7_onnx`
+- `caffe_ssd`
+- `local_transformers`
+
+If only one inference worker is registered, it is selected automatically for backwards compatibility. If multiple are registered and `parameters.worker` is omitted, dispatch returns `503` with the available worker names and leaves the job in `accepted` state. An unknown worker name also fails closed. The Caffe SSD adapter reads `GQL_CAFFE_SSD_CONFIG` when set; otherwise it expects `deploy.prototxt` under `MODEL_DIR`. The configured deploy file must remain inside `MODEL_DIR`.
 
 ## Configuration
 
@@ -482,6 +489,7 @@ The following environment variables are used by the current runtime and Compose 
 | `GQL_ENABLE_YOLOV7_WORKER` | Disabled | Explicitly enables YOLOv7 ONNX inference worker. |
 | `GQL_ENABLE_CAFFE_SSD_WORKER` | Disabled | Explicitly enables Caffe SSD inference worker. |
 | `GQL_ENABLE_LOCAL_TRANSFORMERS_WORKER` | Disabled | Explicitly enables the local Transformers worker. |
+| `GQL_CAFFE_SSD_CONFIG` | `$MODEL_DIR/deploy.prototxt` | Caffe SSD deploy prototxt path; must remain inside `MODEL_DIR`. |
 | `HF_HOME` | `/cache/huggingface` in containers | Hugging Face cache location for compatible local runtime use. |
 | `GQL_CPU_PORT` | `8080` | Host port for CPU Compose service. |
 | `GQL_CUDA_PORT` | `8081` | Host port for CUDA Compose service. |
