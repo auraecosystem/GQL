@@ -18,16 +18,24 @@ from runtime.jobs import (
 )
 from runtime.workers import WorkerUnavailable, worker_registry
 from runtime.yolov7 import YOLOv7ONNXWorker
+from runtime.caffe_ssd import CaffeSSDWorker
 
 
 def _configure_optional_workers() -> None:
     """Register local inference only after an explicit operator opt-in."""
     if os.getenv("GQL_ENABLE_LOCAL_TRANSFORMERS_WORKER", "").strip().lower() in {"1", "true", "yes"}:
         from runtime.local_worker import LocalTransformersWorker
-        worker_registry.register("inference", LocalTransformersWorker())
+        worker_registry.register("inference", LocalTransformersWorker(), name="local_transformers")
 
 
 _configure_optional_workers()
+
+# Multiple explicitly enabled inference adapters can coexist. If more than one
+# is registered, callers select parameters.worker (yolov7_onnx, caffe_ssd, etc.).
+if os.getenv("GQL_ENABLE_YOLOV7_WORKER", "").strip().lower() in {"1", "true", "yes"}:
+    worker_registry.register("inference", YOLOv7ONNXWorker(), name="yolov7_onnx")
+if os.getenv("GQL_ENABLE_CAFFE_SSD_WORKER", "").strip().lower() in {"1", "true", "yes"}:
+    worker_registry.register("inference", CaffeSSDWorker(), name="caffe_ssd")
 
 app = FastAPI(
     title="GQL GPU Fabric",
@@ -37,11 +45,6 @@ app = FastAPI(
         "Execution requires an explicitly registered trusted worker."
     ),
 )
-
-# Explicit opt-in prevents enabling inference against an unreviewed model directory.
-if os.getenv("GQL_ENABLE_YOLOV7_WORKER", "").lower() in {"1", "true", "yes"}:
-    worker_registry.register("inference", YOLOv7ONNXWorker())
-
 
 class JobRequest(BaseModel):
     kind: str = Field(description="inference, training, fine_tuning, evaluation, or embedding")
