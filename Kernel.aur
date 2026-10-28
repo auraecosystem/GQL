@@ -1,0 +1,69 @@
+# Aura Kernel Manifest for GQL
+# Status: declarative proposal; not executable by the current GQL runtime.
+# This file documents the intended control plane. It does not replace the
+# existing Python service, GraphQL schema, job registry, or trusted workers.
+
+AURA_KERNEL "GQL"
+VERSION "0.1.0"
+PROFILE "gpu-execution"
+
+LIFECYCLE {
+    STARTUP_ORDER [
+        "validate-config",
+        "detect-hardware",
+        "register-trusted-workers",
+        "serve-api"
+    ]
+    SHUTDOWN_ORDER [
+        "stop-accepting-jobs",
+        "finish-or-cancel-running-jobs",
+        "close-storage"
+    ]
+}
+
+MODULES {
+    HTTP_API       STATUS "implemented"
+    GRAPHQL_API    STATUS "implemented"
+    JOB_REGISTRY   STATUS "implemented"
+    HARDWARE_PROBE STATUS "implemented"
+    TRUSTED_WORKERS STATUS "implemented-opt-in"
+    PSC_RUNTIME    STATUS "planned"
+    POLICY_ENGINE  STATUS "planned"
+}
+
+POLICY {
+    DEFAULT_WORKER_STATE "disabled"
+    REQUIRE_EXPLICIT_WORKER_OPT_IN TRUE
+    REQUIRE_MODEL_FROM_CONFIGURED_MODEL_DIR TRUE
+    REQUIRE_INPUT_WITHIN_CONFIGURED_INPUT_DIR TRUE
+    ALLOW_ARBITRARY_SCRIPT_EXECUTION FALSE
+    ALLOW_ARBITRARY_NATIVE_EXECUTION FALSE
+    FAIL_CLOSED_ON_INVALID_MANIFEST TRUE
+}
+
+RESOURCE_LIMITS {
+    MAX_SCRIPT_STEPS 100000
+    MAX_SCRIPT_MEMORY_MB 256
+    MAX_SCRIPT_SECONDS 10
+    NOTE "Proposed PSC limits; not enforced by the current GQL service."
+}
+
+BACKENDS {
+    CPU    STATUS "available-by-runtime-configuration"
+    CUDA   STATUS "available-by-runtime-configuration"
+    ROCM   STATUS "available-by-runtime-configuration"
+}
+
+EXTENSION_POINT "PSC"
+    SOURCE_FILES ["Config.psc", "Script.psc"]
+    STATUS "planned"
+    EXECUTION_MODE "disabled-until-reviewed-runtime-exists"
+END_EXTENSION
+
+OBSERVABILITY {
+    RECORD_JOB_STATE_TRANSITIONS TRUE
+    EXPOSE_INTERNAL_SECRETS FALSE
+    REPORT_UNAVAILABLE_CAPABILITIES TRUE
+}
+
+END_KERNEL
