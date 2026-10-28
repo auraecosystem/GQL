@@ -1,0 +1,5 @@
+#-*- mode: shell-script -*-
+# search zsh keybinding with specific keyword
+#fdkey () {
+bindkey | awk -v pattern="$@" '$2 ~ pattern {printf("%5d: %-32s %s\n", NR, "\033[0;33m"$1"\033[0m", $2)}'
+#}
