@@ -88,5 +88,27 @@ class ApiContractTests(unittest.TestCase):
         self.assertEqual(response.status_code, 404)
 
 
+    def test_script_analyzer_requires_bearer_token(self):
+        with patch.dict(os.environ, {"GQL_API_TOKEN": "test-secret"}):
+            response = self.client.post(
+                "/v1/agents/script-analyzer",
+                json={"scripts": {"main.js": "export {};"}},
+            )
+        self.assertEqual(response.status_code, 401)
+
+    def test_authenticated_script_analyzer_dispatches_registered_worker(self):
+        expected = {"agent": "script_analyzer_bot", "executed_source": False, "execution_order": ["main.js"]}
+        with patch.dict(os.environ, {"GQL_API_TOKEN": "test-secret"}), patch(
+            "runtime.app.worker_registry.dispatch", return_value=expected
+        ) as dispatch:
+            response = self.client.post(
+                "/v1/agents/script-analyzer",
+                headers={"Authorization": "Bearer test-secret"},
+                json={"scripts": {"main.js": "export {};"}},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), expected)
+        dispatch.assert_called_once()
+
 if __name__ == "__main__":
     unittest.main()
