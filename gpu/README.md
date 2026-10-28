@@ -41,10 +41,24 @@ before using the authenticated REST endpoint:
 `POST /v1/agents/script-analyzer` with `Authorization: Bearer <token>` and JSON
 body `{"scripts":{"src/main.js":"import './util.js';","src/util.js":"export {};"} }`.
 
-The GraphQL mutation is `analyzeScripts(input: {scripts: ...})`; for example, send
-`mutation { analyzeScripts(input: { scripts: {"src/main.js": "import './util.js';", "src/util.js": "export {};" } }) }`
-to `POST /graphql`. GraphQL is an existing unauthenticated control surface, so keep
-it behind trusted deployment access controls.
+Use the GraphQL mutation with variables so file names containing dots and slashes remain valid JSON keys:
+
+```json
+{
+  "query": "mutation Analyze($input: AnalyzeScriptsInput!) { analyzeScripts(input: $input) }",
+  "variables": {
+    "input": {
+      "scripts": {
+        "src/main.js": "import './util.js';",
+        "src/util.js": "export {};"
+      }
+    }
+  }
+}
+```
+
+Send this body to `POST /graphql`. GraphQL is an existing unauthenticated control
+surface, so keep it behind trusted deployment access controls.
 
 The agent accepts up to 100 relative JS/TS source files, with 256,000 characters per
 file and 1,000,000 characters combined. It reports relative dependencies, external
